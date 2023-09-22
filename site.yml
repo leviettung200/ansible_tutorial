@@ -4,19 +4,30 @@
   become: true
   pre_tasks:
   
-  - name: install updates (Ubuntu)
+  - name: update repository index (Ubuntu)
     tags: always
     apt:
-      upgrade: dist
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "Ubuntu"
 
-  - name: install updates (CentOS)
+  - name: update repository index (CentOS)
     tags: always
     dnf:
-      update_only: yes
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "CentOS"
+
+
+- hosts: all
+  become: true
+  tasks:
+
+  - name: add ssh key for simone
+    tags: always
+    authorized_key:
+      user: simone
+      key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPA+hcEYmuA8qwI2eqSnAjkedeblIVgRmVrpymKACBEc ansible key"
 
 
 - hosts: workstations
@@ -59,6 +70,30 @@
         - php
       state: latest
     when: ansible_distribution == "CentOS"
+
+  - name: start httpd (CentOS)
+    tags: apache,centos,httpd
+    service:
+      name: httpd
+      state: started
+      enabled: yes
+    when: ansible_distribution == "CentOS"
+
+  - name: change e-mail address for admin
+    tags: apache,centos,httpd
+    lineinfile:
+      path: /etc/httpd/conf/httpd.conf
+      regexp: '^ServerAdmin'
+      line: ServerAdmin tunglv@somewhere.com
+    when: ansible_distribution == "CentOS"
+    register: httpdupd
+
+  - name: restart httpd (CentOS)
+    tags: apache,centos,httpd
+    service:
+      name: httpd
+      state: restarted
+    when: httpdupd.changed
 
   - name: copy default html file for site
     copy:
